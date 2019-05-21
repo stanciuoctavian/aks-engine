@@ -136,7 +136,7 @@ var (
 	DefaultAKSOSImageConfig = AzureOSImageConfig{
 		ImageOffer:     "aks",
 		ImageSku:       "aks-ubuntu-1604-201904",
-		ImagePublisher: "Microsoft",
+		ImagePublisher: "microsoft-aks",
 		ImageVersion:   "2019.04.30",
 	}
 
