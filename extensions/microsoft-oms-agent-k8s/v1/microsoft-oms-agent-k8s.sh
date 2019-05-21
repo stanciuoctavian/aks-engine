@@ -11,7 +11,7 @@ log() {
 
 get_param() {
   local param=$1
-  jq ".$param" -r <<<"$parameters"
+  echo $(echo "$parameters" | jq ".$param" -r)
 }
 
 install_script_dependencies() {
