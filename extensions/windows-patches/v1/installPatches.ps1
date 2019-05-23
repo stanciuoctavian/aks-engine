@@ -9,14 +9,26 @@ param(
     [string[]] $URIs
 )
 
+$logfile = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\1.9.3\InstallPatches.log"
+
+Function Write-Log 
+{
+   Param ([string]$logstring)
+   $stamp = (Get-Date).toString("yyyy/MM/dd HH:mm:ss")
+   $line = "$Stamp $logstring"
+   Add-content $logfile -value $line
+}
+
 function DownloadFile([string] $URI, [string] $fullName)
 {
     try {
-        Write-Host "Downloading $URI"
+	      Write-Host "Downloading $URI"
+        Write-Log "Downloading $URI"
         $ProgressPreference = 'SilentlyContinue'
         Invoke-WebRequest -UseBasicParsing $URI -OutFile $fullName
     } catch {
         Write-Error $_
+	      Write-Log $_
         exit 2
     }
 }
@@ -24,6 +36,7 @@ function DownloadFile([string] $URI, [string] $fullName)
 
 $URIs | ForEach-Object {
     Write-Host "Processing $_"
+    Write-Log "Processing $_"
     $uri = $_
     $pathOnly = $uri
     if ($pathOnly.Contains("?"))
@@ -38,18 +51,22 @@ $URIs | ForEach-Object {
             Start-Process -FilePath bcdedit.exe -ArgumentList "/set {current} testsigning on" -Wait
             DownloadFile -URI $uri -fullName $fullName
             Write-Host "Starting $fullName"
+            Write-Log "Starting $fullName"
             $proc = Start-Process -Passthru -FilePath "$fullName" -ArgumentList "/q /norestart"
             Wait-Process -InputObject $proc
             switch ($proc.ExitCode)
             {
                 0 {
                     Write-Host "Finished running $fullName"
+                    Write-Log "Finished running $fullName"
                 }
                 3010 {
                     Write-Host "Finished running $fullName. Reboot required to finish patching."
+                    Write-Log "Finished running $fullName. Reboot required to finish patching."
                 }
                 Default {
                     Write-Error "Error running $fullName, exitcode $($proc.ExitCode)"
+                    Write-Log "Error running $fullName, exitcode $($proc.ExitCode)"
                     exit 1
                 }
             }
@@ -57,24 +74,29 @@ $URIs | ForEach-Object {
         ".msu" {
             DownloadFile -URI $uri -fullName $fullName
             Write-Host "Installing $localPath"
+            Write-Log "Installing $localPath"
             $proc = Start-Process -Passthru -FilePath wusa.exe -ArgumentList "$fullName /quiet /norestart"
             Wait-Process -InputObject $proc
             switch ($proc.ExitCode)
             {
                 0 {
                     Write-Host "Finished running $fullName"
+                    Write-Log "Finished running $fullName"
                 }
                 3010 {
                     Write-Host "Finished running $fullName. Reboot required to finish patching."
+                    Write-Log "Finished running $fullName. Reboot required to finish patching."
                 }
                 Default {
                     Write-Error "Error running $fullName, exitcode $($proc.ExitCode)"
+                    Write-Log "Error running $fullName, exitcode $($proc.ExitCode)"
                     exit 1
                 }
             }
         }
         Default {
             Write-Error "This script extension doesn't know how to install $ext files"
+            Write-Log "This script extension doesn't know how to install $ext files"
             exit 3
         }
     }
@@ -82,5 +104,11 @@ $URIs | ForEach-Object {
 
 # No failures, schedule reboot now
 
+Write-Log "Scheduling Task."
 schtasks /create /TN RebootAfterPatch /RU SYSTEM /TR "shutdown.exe /r /t 0 /d 2:17" /SC ONCE /ST $(([System.DateTime]::Now + [timespan]::FromMinutes(5)).ToString("HH:mm")) /V1 /Z
+
+Write-Log "Task Scheduled."
+Write-Log "Listing scheduled tasks."
+Get-ScheduledTask >> $logfile
+Write-Log "Exiting"
 exit 0
