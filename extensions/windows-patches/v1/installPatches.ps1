@@ -37,7 +37,7 @@ set logfile="C:\Windows\Temp\shutdown.log"
 echo > %logfile%
 echo "Starting Shutdown" >> %logfile%
 
-shutdown.exe /r /t 0 /f /d 2:17  >> %logfile% 2>&1
+shutdown.exe /r /t 0 /d 2:17  >> %logfile% 2>&1
 
 echo "End" >> %logfile%
 "@
