@@ -19,10 +19,37 @@ Function Write-Log
    Add-content $logfile -value $line
 }
 
+Function Create-ShutdownScript
+{
+
+$file = "C:\Windows\Temp\shutdown.bat"
+if (Test-Path $file)
+{
+  Remove-Item $file
+}
+
+New-Item $file -ItemType File -Value "@echo off"
+
+$fileContent = @"
+
+set logfile="C:\Windows\Temp\shutdown.log"
+
+echo > %logfile%
+echo "Starting Shutdown" >> %logfile%
+
+shutdown.exe /r /t 0 /f /d 2:17  >> %logfile% 2>&1
+
+echo "End" >> %logfile%
+"@
+
+Add-Content $file -value $fileContent
+
+}
+
 function DownloadFile([string] $URI, [string] $fullName)
 {
     try {
-	      Write-Host "Downloading $URI"
+	Write-Host "Downloading $URI"
         Write-Log "Downloading $URI"
         $ProgressPreference = 'SilentlyContinue'
         Invoke-WebRequest -UseBasicParsing $URI -OutFile $fullName
@@ -104,8 +131,11 @@ $URIs | ForEach-Object {
 
 # No failures, schedule reboot now
 
+Write-Log "Create Shutdown Script."
+Create-ShutdownScript
+
 Write-Log "Scheduling Task."
-schtasks /create /TN RebootAfterPatch /RU SYSTEM /TR "shutdown.exe /r /t 0 /d 2:17" /SC ONCE /ST $(([System.DateTime]::Now + [timespan]::FromMinutes(5)).ToString("HH:mm")) /V1 /Z
+schtasks /create /TN RebootAfterPatch /RU SYSTEM /TR "c:\Windows\Temp\shutdown.bat" /SC ONCE /ST $(([System.DateTime]::Now + [timespan]::FromMinutes(5)).ToString("HH:mm")) /V1 /Z
 
 Write-Log "Task Scheduled."
 Write-Log "Listing scheduled tasks."
